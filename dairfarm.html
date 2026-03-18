@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dairy Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body{margin:0;font-family:Segoe UI;background:#f0fdf4}
+
+header{
+position:relative;
+height:220px;
+overflow:hidden;
+color:#fff;
+display:flex;
+align-items:center;
+justify-content:space-between;
+padding:20px;
+}
+
+header h2{
+position:relative;
+z-index:2;
+background:rgba(0,0,0,0.5);
+padding:10px 15px;
+border-radius:10px
+}
+
+.slider{
+position:absolute;
+top:0;left:0;width:100%;height:100%;
+z-index:0
+}
+
+.slide{
+position:absolute;
+width:100%;height:100%;
+background-size:cover;
+background-position:center;
+opacity:0;
+transition:opacity 1s ease-in-out
+}
+
+.slide.active{opacity:1}
+
+.overlay{
+position:absolute;
+top:0;left:0;width:100%;height:100%;
+background:rgba(0,0,0,0.4);
+z-index:1
+}
+
+.card{background:#fff;margin:15px;padding:15px;border-radius:12px;box-shadow:0 5px 15px rgba(0,0,0,0.1)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+input{padding:7px;border-radius:8px;border:1px solid #ccc;width:140px}
+button{padding:10px;border:none;border-radius:10px;background:#16a34a;color:#fff;cursor:pointer}
+.info{cursor:pointer;color:#2563eb;margin-left:5px}
+.tooltip{position:absolute;background:#fff;border:1px solid #ccc;padding:8px;border-radius:8px;display:none}
+
+.charts{display:flex;gap:15px;flex-wrap:wrap}
+canvas{max-width:260px;max-height:200px}
+
+table{width:100%;border-collapse:collapse}
+th,td{border:1px solid #ddd;padding:6px;text-align:center}
+</style>
+</head>
+<body>
+
+<header>
+<div class="slider">
+<div class="slide active" style="background-image:url('https://images.unsplash.com/photo-1500595046743-cd271d694d30?auto=format&fit=crop&w=1600&q=80')"></div>
+<div class="slide" style="background-image:url('https://images.unsplash.com/photo-1596733430284-f7437764b1a9?auto=format&fit=crop&w=1600&q=80')"></div>
+<div class="slide" style="background-image:url('https://images.unsplash.com/photo-1560824720-12c1c3f8b5b7?auto=format&fit=crop&w=1600&q=80')"></div>
+</div>
+<div class="overlay"></div>
+<h2>🐄 Dairy Dashboard</h2>
+<div style="z-index:2">Smart Planner</div>
+</header>
+
+<div class="card">
+<h3>Inputs</h3>
+<div class="grid">
+<div>🐄 Cows <span class="info" onclick="tip(event,'Example: 10')">ℹ️</span><input id="unit"></div>
+<div>🐄 Female <span class="info" onclick="tip(event,'Example: 6')">ℹ️</span><input id="female"></div>
+<div>🐄 Male <span class="info" onclick="tip(event,'Example: 4')">ℹ️</span><input id="male"></div>
+<div>💰 Cost/Cow <span class="info" onclick="tip(event,'₹60000')">ℹ️</span><input id="cost"></div>
+<div>🏦 Loan % <span class="info" onclick="tip(event,'Example: 0.7')">ℹ️</span><input id="loanPercent"></div>
+<div>📈 Interest <span class="info" onclick="tip(event,'Example: 0.1')">ℹ️</span><input id="interest"></div>
+<div>📅 Years <span class="info" onclick="tip(event,'5')">ℹ️</span><input id="years"></div>
+<div>🥛 Milk <span class="info" onclick="tip(event,'10')">ℹ️</span><input id="milk"></div>
+<div>💵 Price <span class="info" onclick="tip(event,'40')">ℹ️</span><input id="price"></div>
+<div>🌾 Feed Qty <span class="info" onclick="tip(event,'10kg')">ℹ️</span><input id="feedQty"></div>
+<div>💸 Feed Price <span class="info" onclick="tip(event,'20')">ℹ️</span><input id="feedPrice"></div>
+<div>🏥 Vet <span class="info" onclick="tip(event,'2000')">ℹ️</span><input id="vet"></div>
+<div>⚠️ Infertility <span class="info" onclick="tip(event,'0.1')">ℹ️</span><input id="infertility"></div>
+<div>💀 Death Rate <span class="info" onclick="tip(event,'0.05')">ℹ️</span><input id="death"></div>
+<div>🔄 Culling Rate <span class="info" onclick="tip(event,'0.2 after year 3')">ℹ️</span><input id="culling"></div>
+</div>
+<button onclick="run()">Analyze</button>
+
+<h3 id="summary"></h3>
+
+<div class="charts">
+<canvas id="profitChart"></canvas>
+<canvas id="pieChart"></canvas>
+<canvas id="herdChart"></canvas>
+</div>
+
+<h3>Table</h3>
+<table>
+<thead>
+<tr><th>Year</th><th>Cows</th><th>Kids</th><th>Revenue</th><th>Feed</th><th>Vet</th><th>Profit</th></tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+</div>
+
+<div id="tooltip" class="tooltip"></div>
+
+<script>
+let slides=document.querySelectorAll('.slide');
+let index=0;
+setInterval(()=>{
+slides[index].classList.remove('active');
+index=(index+1)%slides.length;
+slides[index].classList.add('active');
+},3000);
+
+function tip(e,text){
+let t=document.getElementById('tooltip');
+t.innerHTML=text;
+t.style.display='block';
+t.style.left=e.pageX+'px';
+t.style.top=e.pageY+'px';
+setTimeout(()=>t.style.display='none',2000);
+}
+
+let charts=[];
+function v(id){return +document.getElementById(id).value||0}
+
+function run(){
+charts.forEach(c=>c.destroy()); charts=[];
+
+let cows=v('unit');
+let females=v('female');
+let years=v('years');
+let milk=v('milk');
+let price=v('price');
+let feedQty=v('feedQty');
+let feedPrice=v('feedPrice');
+let vet=v('vet');
+
+let profits=[], herd=[], labels=[];
+let totalFeed=0,totalVet=0,html="";
+
+for(let y=1;y<=years;y++){
+let births=females*0.9;
+cows+=births;
+females=cows*0.5;
+
+let revenue=cows*milk*365*price;
+let feed=cows*feedQty*feedPrice*365;
+let vetCost=cows*vet;
+let profit=revenue-(feed+vetCost);
+
+profits.push(profit);
+herd.push(cows);
+labels.push('Y'+y);
+
+totalFeed+=feed; totalVet+=vetCost;
+
+html+=`<tr><td>${y}</td><td>${Math.round(cows)}</td><td>${Math.round(births)}</td><td>${Math.round(revenue)}</td><td>${Math.round(feed)}</td><td>${Math.round(vetCost)}</td><td>${Math.round(profit)}</td></tr>`;
+}
+
+charts.push(new Chart(profitChart,{type:'line',data:{labels,datasets:[{label:'Profit',data:profits}]}}));
+charts.push(new Chart(pieChart,{type:'pie',data:{labels:['Feed','Vet'],datasets:[{data:[totalFeed,totalVet]}]}}));
+charts.push(new Chart(herdChart,{type:'bar',data:{labels,datasets:[{label:'Herd',data:herd}]}}));
+
+summary.innerHTML='Done';
+table.innerHTML=html;
+}
+</script>
+
+</body>
+</html>
